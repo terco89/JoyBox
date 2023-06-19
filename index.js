@@ -3,7 +3,7 @@
 const http = require('http');
 const socket = require('socket.io');
 const server = http.createServer();
-const port = 3000;
+const port = process.env.PORT || 4000;
 
 var io = socket(server, {
     pingInterval: 10000,
