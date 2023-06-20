@@ -3,7 +3,7 @@
 const http = require('http');
 const socket = require('socket.io');
 const server = http.createServer();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 3000;
 
 var io = socket(server, {
     pingInterval: 10000,
@@ -41,7 +41,5 @@ io.on('connection', socket => {
 });
 
 
-server.listen(port, () => {
-  console.log('listening on *:' + port);
-});
-
+server.listen(port);
+console.log("ouyea esta corriendo el server en el puerto "+port);
