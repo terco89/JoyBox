@@ -1,4 +1,20 @@
-'use strict';
+const express = require('express');
+const app = express();
+
+app.set('port', process.env.PORT || 3000);
+
+const server = app.listen(app.get('port'),() =>{
+  console.log("servidor se corre en puerto ",app.get('port'));
+});
+
+const SocketIO = require('socket.io');
+const io = SocketIO(server);
+
+io.on('connection',(socket)=>{
+  console.log('new connection',socket.id);
+});
+
+/*'use strict';
 
 const http = require('http');
 const socket = require('socket.io');
@@ -42,4 +58,4 @@ io.on('connection', socket => {
 
 
 server.listen(port);
-console.log("ouyea esta corriendo el server en el puerto "+port);
+console.log("ouyea esta corriendo el server en el puerto "+port);*/
