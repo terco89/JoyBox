@@ -12,50 +12,23 @@ const io = SocketIO(server);
 
 io.on('connection',(socket)=>{
   console.log('new connection',socket.id);
-});
-
-/*'use strict';
-
-const http = require('http');
-const socket = require('socket.io');
-const server = http.createServer();
-const port = process.env.PORT || 3000;
-
-var io = socket(server, {
-    pingInterval: 10000,
-    pingTimeout: 5000
-});
-
-io.use((socket, next) => {
-    if (socket.handshake.query.token === "UNITY") {
-        next();
-    } else {
-        next(new Error("Authentication error"));
-    }
-});
-
-io.on('connection', socket => {
-  console.log('connection');
-
-  setTimeout(() => {
-    socket.emit('connection', {date: new Date().getTime(), data: "Hello Unity"})
-  }, 1000);
-
   socket.on('hello', (data) => {
-    console.log('hello', data);
-    socket.emit('hello', {date: new Date().getTime(), data: data});
-  });
-
-  socket.on('message', (data) => {
-    console.log(data);
-  });
-
-  socket.on('class', (data) => {
-    console.log('class', data);
-    socket.emit('class', {date: new Date().getTime(), data: data});
+    console.log('Evento "hello" recibido:', data);
+    // Emitir un evento de respuesta
+    socket.emit('hello', '¡Hola, cliente!');
   });
 });
 
+/*const url = 'https://www.ejemplo.com/archivo.php';
+const data = {
+  parametro1: 'valor1',
+  parametro2: 'valor2'
+};
 
-server.listen(port);
-console.log("ouyea esta corriendo el server en el puerto "+port);*/
+axios.post(url, data)
+  .then(response => {
+    console.log('Respuesta del servidor PHP:', response.data);
+  })
+  .catch(error => {
+    console.error('Error al hacer la solicitud:', error);
+  });*/
