@@ -26,7 +26,7 @@ io.on('connection',(socket)=>{
     };
     axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", {datos})
     .then(response => {
-      console.log("s");
+      console.log(response);
       //io.to(socket.id).emit('registro', response);
     })
     .catch(error => {
