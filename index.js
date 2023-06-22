@@ -30,6 +30,7 @@ io.on('connection',(socket)=>{
     })
     .catch(error => {
       io.to(socket.id).emit('registro', JSON.stringify({exito : false}));
+      console.log(error);
     });
   });
 });
