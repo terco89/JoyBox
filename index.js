@@ -16,15 +16,15 @@ const io = SocketIO(server);
 io.on('connection',(socket)=>{
   console.log('new connection',socket.id);
   socket.on('registro', (data) => {
-    var json = JSON.parse(data);
+    /*var json = JSON.parse(data);
     const datos = {
       nombre: json.nombre,
       correo: json.correo,
       edad:json.edad,
       contrasenia:json.contrasenia,
       rcontrasenia:json.rcontrasenia
-    };
-    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", {datos})
+    };*/
+    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", data)
     .then(response => {
       console.log(response.data);
       //io.to(socket.id).emit('registro', response);
