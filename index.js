@@ -1,7 +1,7 @@
+import fetch from 'cross-fetch';
 const express = require('express');
 const app = express();
 var url = 'https://joyboxapp.000webhost.com/';
-const fetch = require('node-fetch');
 
 app.set('port', process.env.PORT || 3000);
 
