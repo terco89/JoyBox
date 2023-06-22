@@ -1,5 +1,6 @@
 const express = require('express');
 const app = express();
+const url = 'https://joyboxapp.000webhost.com/';
 
 app.set('port', process.env.PORT || 3000);
 
@@ -12,10 +13,23 @@ const io = SocketIO(server);
 
 io.on('connection',(socket)=>{
   console.log('new connection',socket.id);
-  socket.on('hello', (data) => {
-    console.log('Evento "hello" recibido:', data);
-    // Emitir un evento de respuesta
-    socket.emit('hello', '¡Hola, cliente!');
+  socket.on('registro', (data) => {
+    var json = JSON.parse(data);
+    const datos = {
+      nombre: json.nombre,
+      correo: json.correo,
+      edad:json.edad,
+      contrasenia:json.contrasenia,
+      rcontrasenia:json.rcontrasenia
+    };
+
+    axios.post(url+"nuevoUsuario.php", datos)
+    .then(response => {
+      io.to(socket.id).emit('registro', JSON.stringify(response));
+    })
+    .catch(error => {
+      io.to(socket.id).emit('registro', JSON.stringify({exito : false}));
+    });
   });
 });
 
