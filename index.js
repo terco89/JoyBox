@@ -27,7 +27,8 @@ io.on('connection',(socket)=>{
     console.log(datos.nombre+" "+datos.correo+" "+datos.edad+" "+datos.contrasenia+" "+datos.rcontrasenia);
     axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", datos)
     .then(response => {
-      io.to(socket.id).emit('registro', CircularJSON.stringify(response));
+      console.log(response);
+      //io.to(socket.id).emit('registro', response);
     })
     .catch(error => {
       io.to(socket.id).emit('registro', JSON.stringify({exito : false}));
