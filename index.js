@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const url = 'https://joyboxapp.000webhost.com/';
 const axios = require('axios');
+const CircularJSON = require('circular-json');
 
 app.set('port', process.env.PORT || 3000);
 
@@ -24,7 +25,7 @@ io.on('connection',(socket)=>{
       rcontrasenia:json.rcontrasenia
     };
     console.log(datos.nombre+" "+datos.correo+" "+datos.edad+" "+datos.contrasenia+" "+datos.rcontrasenia);
-    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", datos)
+    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", CircularJSON.stringify(datos))
     .then(response => {
       io.to(socket.id).emit('registro', JSON.stringify(response));
     })
