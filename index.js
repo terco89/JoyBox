@@ -17,14 +17,13 @@ io.on('connection',(socket)=>{
   console.log('new connection',socket.id);
   socket.on('registro', (data) => {
     var json = JSON.parse(data);
-    const datos = {
+    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", {
       nombre: json.nombre,
       correo: json.correo,
       edad:json.edad,
       contrasenia:json.contrasenia,
       rcontrasenia:json.rcontrasenia
-    };
-    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", {datos})
+    })
     .then(response => {
       io.to(socket.id).emit('registro', response);
     })
