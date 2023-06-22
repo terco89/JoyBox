@@ -24,7 +24,7 @@ io.on('connection',(socket)=>{
       rcontrasenia:json.rcontrasenia
     };
 
-    axios.post(url+"nuevoUsuario.php", datos)
+    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", datos)
     .then(response => {
       io.to(socket.id).emit('registro', JSON.stringify(response));
     })
