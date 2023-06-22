@@ -1,7 +1,7 @@
-import fetch from 'cross-fetch';
 const express = require('express');
 const app = express();
-var url = 'https://joyboxapp.000webhost.com/';
+const url = 'https://joyboxapp.000webhost.com/';
+const axios = require('axios');
 
 app.set('port', process.env.PORT || 3000);
 
@@ -23,17 +23,14 @@ io.on('connection',(socket)=>{
       contrasenia:json.contrasenia,
       rcontrasenia:json.rcontrasenia
     };
-    fetch('http://example.com/external-file.php', {
-      method: 'POST',
-      body: postData
+    console.log(datos.nombre+" "+datos.correo+" "+datos.edad+" "+datos.contrasenia+" "+datos.rcontrasenia);
+    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", datos)
+    .then(response => {
+      io.to(socket.id).emit('registro', JSON.stringify(response));
     })
-      .then(response => response.text())
-      .then(data => {
-        console.log(data);
-      })
-      .catch(error => {
-        console.error(error);
-      });
+    .catch(error => {
+      io.to(socket.id).emit('registro', JSON.stringify({exito : false}));
+    });
   });
 });
 
