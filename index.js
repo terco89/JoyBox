@@ -3,6 +3,11 @@ const app = express();
 const url = 'https://joyboxapp.000webhost.com/';
 const axios = require('axios');
 const CircularJSON = require('circular-json');
+function player(sid,id) {
+  this.sid = sid;
+  this.id = id;
+}
+var players = [];
 
 app.set('port', process.env.PORT || 3000);
 
@@ -10,11 +15,12 @@ const server = app.listen(app.get('port'),() =>{
   console.log("servidor se corre en puerto ",app.get('port'));
 });
 
+
 const SocketIO = require('socket.io');
 const io = SocketIO(server);
 
 io.on('connection',(socket)=>{
-  console.log('new connection',socket.id);
+  console.log('Deconocido con '+socket.id+' saluda al server');
   socket.on('registro', (data) => {
     axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", data)
     .then(response => {
@@ -25,18 +31,24 @@ io.on('connection',(socket)=>{
       console.log(error);
     });
   });
+  socket.on('login', (data) => {
+    axios.post("https://joyboxapp.000webhostapp.com/login.php", data)
+    .then(response => {
+      var val = response.data;
+      if(val.id){
+        players.push(new player(socket.id,val.id))
+        io.to(socket.id).emit('login', JSON.stringify({nombre:val.nombre}));
+      }else{
+        io.to(socket.id).emit('login', JSON.stringify({exito:false}));
+      }
+    })
+    .catch(error => {
+      io.to(socket.id).emit('login', JSON.stringify({exito : false}));
+      console.log(error);
+    });
+  });
 });
 
-/*const url = 'https://www.ejemplo.com/archivo.php';
-const data = {
-  parametro1: 'valor1',
-  parametro2: 'valor2'
-};
-
-axios.post(url, data)
-  .then(response => {
-    console.log('Respuesta del servidor PHP:', response.data);
-  })
-  .catch(error => {
-    console.error('Error al hacer la solicitud:', error);
-  });*/
+function djson(jsond){
+  return JSON.parse(jsond.split("[")[1].split("]")[0])
+}
