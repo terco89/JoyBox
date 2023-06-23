@@ -18,7 +18,7 @@ io.on('connection',(socket)=>{
   socket.on('registro', (data) => {
     axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", data)
     .then(response => {
-      io.to(socket.id).emit('registro', JSON.stringify(JSON.parse(response)));
+      io.to(socket.id).emit('registro', response.data);
     })
     .catch(error => {
       io.to(socket.id).emit('registro', JSON.stringify({exito : false}));
