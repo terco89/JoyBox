@@ -3,10 +3,22 @@ const app = express();
 const url = 'https://joyboxapp.000webhost.com/';
 const axios = require('axios');
 const CircularJSON = require('circular-json');
+
+const { Pool } = require('pg');
+
+// Configura los datos de acceso a la base de datos
+const pool = new Pool({
+  user: 'postgres',
+  host: 'localhost', // o la dirección del servidor de la base de datos
+  database: 'JoyBox',
+  password: 'karateca2',
+  port: 5432, // Puerto por defecto de PostgreSQL
+});
+
 function player(sid, id) {
   this.sid = sid;
   this.id = id;
-  
+
 }
 function partida(id, juego) {
   this.id = id;
@@ -38,94 +50,109 @@ const SocketIO = require('socket.io');
 const io = SocketIO(server);
 
 io.on('connection', (socket) => {
-  console.log('Deconocido con ' + socket.id + ' saluda al server');
+  //console.log('Deconocido con ' + socket.id + ' saluda al server');
+  //console.log(players);
+  socket.on("disconnect", (data) => {
+    if(buscarid(socket.id)){
+      for(var i = players.length-1; i >= 0; i--){
+        if(players[i].sid == socket.id){
+          players.splice(i,1)
+          break;
+        }
+      }
+    }
+  });
   socket.on('registro', (data) => {
-    axios.post("https://joyboxapp.000webhostapp.com/nuevoUsuario.php", {datos:data})
-      .then(response => {
-        io.to(socket.id).emit('registro', response.data);
-      })
-      .catch(error => {
-        io.to(socket.id).emit('registro', { exito: false });
-        console.log(error);
-      });
+    data = limpiar(data.datos);
+    console.log(data);
+    enviarConsulta("SELECT registrar('"+data[0]+"',"+data[1]+",'"+data[2]+"','"+data[3]+"','"+data[4]+"') AS msg").then(res=>{
+      io.to(socket.id).emit("registro",{msg:res.rows[0].msg});
+    })
+    .catch(error => {
+      console.log(error);
+      io.to(socket.id).emit("registro",{msg:"error"});
+    })
   });
   socket.on('login', (data) => {
-    axios.post("https://joyboxapp.000webhostapp.com/login.php", {datos:data})
-      .then(response => {
-        var val = response.data;
-        if (val.id) {
-          var ar = [];
-          players.push(new player(socket.id, val.id))
-          for (var i = 0; i < val.amigos.length; i++) {
-            var ban = true;
-            ar.push(val.amigos[i].id_amigo);
-            ar.push(val.amigos[i].nombre);
-            for(var j = 0; j < partidas.length; j++){
-              if(partidas[j].id == val.amigos[i].id_amigo){
-                ar.push(partidas[j].juego)
-                ban = false;
-                break;
+    data = data.datos
+    enviarConsulta("SELECT login('"+data[0]+"','"+data[1]+"') AS id").then(res => {
+      if(res.rows[0].id){
+        if(buscarsid(res.rows[0].id)){
+          io.to(socket.id).emit("login", ["","EnUso"]);
+          return;
+        }
+        enviarConsulta("SELECT id_amigo,nombre FROM amigos INNER JOIN usuarios ON amigos.id_amigo = usuarios.id WHERE amigos.fecha_baja IS NULL AND id_user = " + res.rows[0].id).then(res1 => {
+          enviarConsulta("SELECT id_user AS id_amigo,nombre FROM amigos INNER JOIN usuarios ON amigos.id_user = usuarios.id WHERE amigos.fecha_baja IS NULL AND id_amigo = " + res.rows[0].id).then(res2 => {
+            var amigos = [...res1.rows,...res2.rows];
+            var ar = [];
+            players.push(new player(socket.id, res.rows[0].id))
+            for (var i = 0; i < amigos.length; i++) {
+              var ban = true;
+              ar.push(amigos[i].id_amigo);
+              ar.push(amigos[i].nombre);
+              for(var j = 0; j < partidas.length; j++){
+                if(partidas[j].id == amigos[i].id_amigo){
+                  ar.push(partidas[j].juego)
+                  ban = false;
+                  break;
+                }
+              }
+              if(ban){
+                ar.push("defecto")
               }
             }
-            if(ban){
-              ar.push("defecto")
-            }
-          }
-          io.to(socket.id).emit('camigos', ar);
-          io.to(socket.id).emit('login', { nombre: val.nombre });
-        } else {
-          io.to(socket.id).emit('login', { exito: false });
-        }
-      })
-      .catch(error => {
-        io.to(socket.id).emit('login', { exito: false });
-        console.log(error);
-      });
+            io.to(socket.id).emit('camigos', ar);
+            io.to(socket.id).emit('login', [data[0],"1"]);
+          })
+        })
+      } else{
+        io.to(socket.id).emit('login', ["","CI"]);
+      }
+    }).catch(error => {
+      io.to(socket.id).emit('login', ["","IX" ]);
+      console.log(error);
+    });
   });
   socket.on('mensajes', (data) => {
-    axios.post("https://joyboxapp.000webhostapp.com/traerMensajes.php", JSON.stringify({id:buscarid(socket.id),id_amigo:JSON.parse(data).id}))
-      .then(response => {
-        if(response.data.mensajes){
-          var envio = [];
-          var msgs = response.data.mensajes
-          for(var i = 0; i < msgs.length; i++){
-            envio.push(msgs[i].usuario_id)
-            envio.push(msgs[i].mensaje)
-          }
-          io.to(socket.id).emit("losMensajes",envio);
+    data = limpiar(data.datos)
+    var id = buscarid(socket.id);
+    enviarConsulta("SELECT mensaje,usuario_id FROM mensajes WHERE (usuario_id = "+id+" AND amigo_id = "+data[0]+") OR (usuario_id = "+data[0]+" AND amigo_id = "+id+")").then(res => {
+      if (res.rows) {
+        var envio = [];
+        for (var i = 0; i < res.rows.length; i++) {
+          envio.push(res.rows[i].usuario_id)
+          envio.push(res.rows[i].mensaje)
         }
-      })
-      .catch(error => {
-        console.log(error);
-      });
+        io.to(socket.id).emit("losMensajes", envio);
+      }
+    }).catch(error => {
+      console.log(error);
+    })
   });
   socket.on('mandar', (data) => {
-    var datos = JSON.parse(data);
-    axios.post("https://joyboxapp.000webhostapp.com/insertarMensaje.php", {id:buscarid(socket.id),amigo_id:datos.id,mensaje:datos.msg})
-      .then(response => {
-        if(response.data.exito){
-          var sid = buscarsid(datos.id)
-          if(sid){
-            io.to(sid).emit("nuevoMensaje",{id:buscarid(socket.id),msg:datos.msg});
+      data = data.datos
+      var id = buscarid(socket.id)
+      enviarConsulta("INSERT INTO mensajes(usuario_id,amigo_id,mensaje) VALUES("+id+","+data[0]+",'"+data[1]+"')").then(res => {
+          var sid = buscarsid(data[0])
+          if (sid) {
+            io.to(sid).emit("nuevoMensaje", { id: id, msg: data[1] });
           }
-          io.to(socket.id).emit("mensajeEnviado",{exito:true});
-        }
+          io.to(socket.id).emit("mensajeEnviado", { exito: true });
+      }).catch(error => {
+        console.log(error)
       })
-      .catch(error => {
-        console.log(error);
-      });
   });
   socket.on('esteJuego', (data) => {
     var juego = JSON.parse(data).juego;
     var id = buscarid(socket.id);
-    partidas.push(new partida(id,juego));
-    axios.post("https://joyboxapp.000webhostapp.com/traerAmigos.php", JSON.stringify({id:id}))
+    partidas.push(new partida(id, juego));
+    axios.post("https://joyboxapp.000webhostapp.com/traerAmigos.php", JSON.stringify({ id: id }))
       .then(response => {
         var val = response.data;
-        for(var i = 0; i < players.length; i++){
-          for(var j = 0; j < val.amigos.length; j++){
-            if(players[i].id == val.amigos[j].id_amigo){
-              io.emit("partidaAmigo",{id_amigo:id,juego:juego});
+        for (var i = 0; i < players.length; i++) {
+          for (var j = 0; j < val.amigos.length; j++) {
+            if (players[i].id == val.amigos[j].id_amigo) {
+              io.emit("partidaAmigo", { id_amigo: id, juego: juego });
             }
           }
         }
@@ -134,11 +161,97 @@ io.on('connection', (socket) => {
         console.log(error);
       });
   });
+
+  //eventos busqueda para agregar causas y congregaciones fino señores :vVVVv
+
+  socket.on('buscarUsuarios', (data) => {
+    data = data.datos
+    var id = buscarid(socket.id);
+    enviarConsulta("SELECT id,nombre FROM usuarios WHERE nombre LIKE '%"+data[0]+"%' AND amigo("+id+",id) = False AND id != "+id).then(res => {
+      if (res.rows) {
+        var envio = [];
+        for (var i = 0; i < res.rows.length; i++) {
+          envio.push(res.rows[i].id)
+          envio.push(res.rows[i].nombre)
+        }
+        io.to(socket.id).emit("losUsuarios", envio);
+      }
+      else{
+        io.to(socket.id).emit("losUsuarios", ["nada"]);
+      }
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+
+  socket.on('añadirAmigo', (data) => {
+    data = data.datos
+    enviarConsulta("INSERT INTO amigos(id_user,id_amigo,fecha_baja) VALUES("+buscarid(socket.id)+","+data[0]+",CURRENT_DATE)").then(res => {
+      io.to(socket.id).emit("añadioAmigo",[data[0]]);
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+
+  socket.on('buscarGrupos', (data) => {
+    data = data.datos
+    enviarConsulta("SELECT id,nombre FROM usuarios WHERE nombre LIKE '%"+data[0]+"%'").then(res => {
+      if (res.rows) {
+        var envio = [];
+        for (var i = 0; i < res.rows.length; i++) {
+          envio.push(res.rows[i].id)
+          envio.push(res.rows[i].nombre)
+        }
+        io.to(socket.id).emit("losMensajes", envio);
+      }
+      else{
+        io.to(socket.id).emit("losMensajes", ["nada"]);
+      }
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+
+  //aca terminan
+
+  // eventos para las solicitudes de amistad
+  socket.on('pedirSolicitudes', (data) => {
+    enviarConsulta("SELECT id_user AS id,nombre FROM amigos INNER JOIN usuarios ON amigos.id_user = usuarios.id WHERE amigos.fecha_baja IS NOT NULL AND id_amigo = "+buscarid(socket.id)).then(res => {
+      if (res.rows) {
+        var envio = [];
+        for (var i = 0; i < res.rows.length; i++) {
+          envio.push(res.rows[i].id)
+          envio.push(res.rows[i].nombre)
+        }
+        io.to(socket.id).emit("lasSolicitudes", envio);
+      }
+      else{
+        io.to(socket.id).emit("lasSolicitudes", ["nada"]);
+      }
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+  socket.on('aceptarSolicitud', (data) => {
+    enviarConsulta("UPDATE amigos SET fecha_baja = null WHERE id_user = "+data.datos[0]+" AND id_amigo = "+buscarid(socket.id)).then(res => {
+        io.to(socket.id).emit("solicitudAceptada", data.datos);
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+  socket.on('rechazarSolicitud', (data) => {
+    enviarConsulta("DELETE FROM amigos WHERE id_user = "+data.datos[0]+" AND id_amigo = "+buscarid(socket.id)).then(res => {
+        io.to(socket.id).emit("solicitudRechazada", data.datos);
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+  //aca terminan
   socket.on('fPuntos', (data) => {
     var id = buscarid(socket.id);
-    axios.post("https://joyboxapp.000webhostapp.com/puntosFlappy.php", JSON.stringify({id:id}))
+    axios.post("https://joyboxapp.000webhostapp.com/puntosFlappy.php", JSON.stringify({ id: id }))
       .then(response => {
-        io.to(socket.id).emit("fPuntos",{puntos : response.data.puntaje})
+        io.to(socket.id).emit("fPuntos", { puntos: response.data.puntaje })
       })
       .catch(error => {
         console.log(error);
@@ -146,7 +259,7 @@ io.on('connection', (socket) => {
   });
   socket.on('faPuntos', (data) => {
     var id = buscarid(socket.id);
-    axios.post("https://joyboxapp.000webhostapp.com/actualizarFlappy.php", JSON.stringify({id:id,puntos:JSON.parse(data).puntos}))
+    axios.post("https://joyboxapp.000webhostapp.com/actualizarFlappy.php", JSON.stringify({ id: id, puntos: JSON.parse(data).puntos }))
       .then(response => {
       })
       .catch(error => {
@@ -154,16 +267,16 @@ io.on('connection', (socket) => {
       });
   });
   socket.on('finicio', (data) => {
-    enviarEsp(socket.id,"finicio",{exito:true})
+    enviarEsp(socket.id, "finicio", { exito: true })
   });
   socket.on('ffinal', (data) => {
-    
+
   });
   socket.on('ficols', (data) => {
-    
+
   });
   socket.on('fflap', (data) => {
-    enviarEsp(socket.id,"impulso",{exito:true})
+    enviarEsp(socket.id, "impulso", { exito: true })
   });
   socket.on('fcols', (data) => {
     /*var pid = buscarPartida(buscarid(socket.id));
@@ -174,50 +287,80 @@ io.on('connection', (socket) => {
       partidas[pid].pcols = 0;
     }*/
     var datos = JSON.parse(data)
-    enviarEsp(socket.id,"fcols",{y:datos.y,pos:datos.pos})
+    enviarEsp(socket.id, "fcols", { y: datos.y, pos: datos.pos })
   });
   socket.on('fbg', (data) => {
     var pid = buscarPartida(buscarid(socket.id));
     partidas[pid].bgs[partidas[pid].bg] = JSON.parse(data).x;
-    if(partidas[pid].bg == 0){
+    if (partidas[pid].bg == 0) {
       partidas[pid].bg = 1;
     }
-    else{
+    else {
       partidas[pid].bg = 0;
     }
   });
   socket.on('fentro', (data) => {
-    partidas[buscarPartida(JSON.parse(data).id)].espectadores.push(buscarid(socket.id));
+    var pid = buscarPartida(JSON.parse(data).id);
+    partidas[pid].espectadores.push(buscarid(socket.id));
+    enviarEsp(partidas[pid].id, "valores", { id: socket.id })
+  });
+  socket.on('fvalores', (data) => {
+    enviarEsp(JSON.parse(data).id, "salidas", JSON.parse(data));
   });
 });
 
-function enviarEsp(id,evento,valores){
+function enviarEsp(id, evento, valores) {
   var pid = buscarPartida(buscarid(id));
-  for(var i =0; i < partidas[pid].espectadores.length;i++){
-    io.to(buscarsid(partidas[pid].espectadores[i])).emit(evento,{valores});
+  for (var i = 0; i < partidas[pid].espectadores.length; i++) {
+    io.to(buscarsid(partidas[pid].espectadores[i])).emit(evento, { valores });
   }
 }
 
-function buscarid(sid){
-  for(var i = 0; i < players.length;i++){
-    if(players[i].sid == sid){
+function buscarid(sid) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].sid == sid) {
       return players[i].id;
     }
   }
 }
 
-function buscarsid(id){
-  for(var i = 0; i < players.length;i++){
-    if(players[i].id == id){
+function buscarsid(id) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].id == id) {
       return players[i].sid;
     }
   }
 }
 
-function buscarPartida(id){
-  for(var i = 0; i < partidas.length; i++){
-    if(partidas[i].id == id){
+function buscarPartida(id) {
+  for (var i = 0; i < partidas.length; i++) {
+    if (partidas[i].id == id) {
       return i;
     }
   }
+}
+
+async function enviarConsulta(consulta){
+  return await pool.query(consulta);
+}
+
+async function pullConsultas(consultas){
+  var respuestas = [];
+  for(var i = 0; i < consultas.length; i++){
+    respuestas[respuestas.length-1] = await enviarConsulta();
+  }
+  return respuestas;
+}
+
+function limpiar(si){
+  datos = []
+  for(var i = 0; i < si.length; i++){
+    if(si[i].length > 1){
+      datos.push(si[i].substr(0,si[i].length-1));
+    }
+    else{
+      datos.push(si[i])
+    }
+  }
+  return datos;
 }
