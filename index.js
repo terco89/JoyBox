@@ -8,10 +8,10 @@ const { Pool } = require('pg');
 
 // Configura los datos de acceso a la base de datos
 const pool = new Pool({
-  user: 'postgres',
+  user: 'elpromaster',
   host: 'localhost', // o la dirección del servidor de la base de datos
-  database: 'JoyBox',
-  password: 'karateca2',
+  database: 'a_r3e5',
+  password: 'Y7VaAPh7GilxiHrMTF3M8hiLiEymvRKB',
   port: 5432, // Puerto por defecto de PostgreSQL
 });
 
