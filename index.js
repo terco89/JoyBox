@@ -12,7 +12,8 @@ const pool = new Pool({
   host: 'ccc.oregon-postgres.render.com', // o la dirección del servidor de la base de datos
   database: 'a_r3e5',
   password: 'Y7VaAPh7GilxiHrMTF3M8hiLiEymvRKB',
-  port: 5432, // Puerto por defecto de PostgreSQL
+  port: 5432, // Puerto por defecto de PostgreSQL,
+  ssl: true
 });
 
 function player(sid, id) {
