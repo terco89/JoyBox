@@ -7,13 +7,20 @@ const CircularJSON = require('circular-json');
 const { Pool } = require('pg');
 
 // Configura los datos de acceso a la base de datos
-const pool = new Pool({
+/*const pool = new Pool({
   user: 'elpromaster',
   host: 'ccc.oregon-postgres.render.com', // o la dirección del servidor de la base de datos
   database: 'a_r3e5',
   password: 'Y7VaAPh7GilxiHrMTF3M8hiLiEymvRKB',
   port: 5432, // Puerto por defecto de PostgreSQL,
   ssl: true
+});*/
+
+const pool = new Pool({
+  user: 'postgres',
+  database: 'JoyBox',
+  password: 'karateca2',
+  port: 5432
 });
 
 function player(sid, id) {
@@ -52,7 +59,7 @@ const io = SocketIO(server);
 
 io.on('connection', (socket) => {
   //console.log('Deconocido con ' + socket.id + ' saluda al server');
-  //console.log(players);
+  io.to(socket.id).emit("inicio",[]);
   socket.on("disconnect", (data) => {
     if(buscarid(socket.id)){
       for(var i = players.length-1; i >= 0; i--){
@@ -64,7 +71,7 @@ io.on('connection', (socket) => {
     }
   });
   socket.on('registro', (data) => {
-    data = limpiar(data.datos);
+    data = data.datos;
     console.log(data);
     enviarConsulta("SELECT registrar('"+data[0]+"',"+data[1]+",'"+data[2]+"','"+data[3]+"','"+data[4]+"') AS msg").then(res=>{
       io.to(socket.id).emit("registro",{msg:res.rows[0].msg});
@@ -113,6 +120,35 @@ io.on('connection', (socket) => {
       io.to(socket.id).emit('login', ["","IX" ]);
       console.log(error);
     });
+  });
+  socket.on('logout', (data) => {
+    for(var i = players.length-1; i >= 0; i--){
+      if(players[i].sid == socket.id){
+        players.splice(i,1)
+        io.to(socket.id).emit("logout",["adios vaquero :,V"]);
+        break;
+      }
+    }  
+  });
+  socket.on('eliminar', (data) => {
+    enviarConsulta("UPDATE usuarios SET fecha_baja = CURRENT_DATE WHERE id = "+buscarid(socket.id)).then(res => {
+      io.to(socket.id).emit("eliminar",["pipipi"]);
+    }).catch(error => {
+      console.log(error);
+    })
+  });
+  socket.on('cambiarContra', (data) => {
+    const id = buscarid(socket.id);
+    data = data.datos
+    enviarConsulta("SELECT cambiarcontra('"+data[0]+"','"+data[1]+"',"+id+") AS si").then(res => {
+      if(res.rows[0].si){
+        io.to(socket.id).emit("cambiarContra",["1",data[1]]);
+      } else{
+        io.to(socket.id).emit("cambiarContra",["0"]);
+      }
+    }).catch(error => {
+      console.log(error);
+    })
   });
   socket.on('mensajes', (data) => {
     data = limpiar(data.datos)
@@ -168,7 +204,7 @@ io.on('connection', (socket) => {
   socket.on('buscarUsuarios', (data) => {
     data = data.datos
     var id = buscarid(socket.id);
-    enviarConsulta("SELECT id,nombre FROM usuarios WHERE nombre LIKE '%"+data[0]+"%' AND amigo("+id+",id) = False AND id != "+id).then(res => {
+    enviarConsulta("SELECT id,nombre FROM usuarios WHERE nombre LIKE '%"+data[0]+"%' AND fecha_baja IS NULL AND amigo("+id+",id) = False AND id != "+id).then(res => {
       if (res.rows) {
         var envio = [];
         for (var i = 0; i < res.rows.length; i++) {
